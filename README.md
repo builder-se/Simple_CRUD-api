@@ -1,3 +1,4 @@
+<img width="1920" height="1080" alt="fullreadme" src="https://github.com/user-attachments/assets/4c545805-8977-4777-9a5a-6ddff688e2bd" />
 # FlyRank CRUD API
 
 A small in-memory CRUD API built with FastAPI and Python for the FlyRank Backend AI Engineering Week 2 challenge. It demonstrates REST endpoints, request validation, error handling, and automatic Swagger documentation.
