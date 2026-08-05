@@ -1,3 +1,5 @@
+<img width="1920" height="1080" alt="Screenshot 2026-07-22 232524" src="https://github.com/user-attachments/assets/1d6e52e7-ca7f-448d-9258-4ce6c403aa3a" />
+<img width="1920" height="1080" alt="api-status-code" src="https://github.com/user-attachments/assets/1cd5b155-a75b-4ba9-8ce5-cc7b3af793a9" />
 <img width="1920" height="1080" alt="fullreadme" src="https://github.com/user-attachments/assets/4c545805-8977-4777-9a5a-6ddff688e2bd" />
 # FlyRank CRUD API
 
