@@ -5,7 +5,7 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from app.database import init_db
+from app.database import get_connection, init_db
 
 app = FastAPI()
 
@@ -86,6 +86,14 @@ tasks = [
 ]
 
 
+def _row_to_task(row):
+    return {
+        "id": row[0],
+        "title": row[1],
+        "done": bool(row[2]),
+    }
+
+
 @app.get(
     "/",
     summary="API metadata",
@@ -114,7 +122,12 @@ def health_check():
     description="Returns every task currently stored in the in-memory list.",
 )
 def get_tasks():
-    return {"tasks": tasks}
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tasks")
+        rows = cursor.fetchall()
+
+    return {"tasks": [_row_to_task(row) for row in rows]}
 
 
 @app.get(
@@ -124,10 +137,15 @@ def get_tasks():
     responses={404: {"description": "Task not found"}},
 )
 def get_task(task_id: int):
-    for task in tasks:
-        if task["id"] == task_id:
-            return task
-    raise HTTPException(status_code=404, detail=f"Task with id {task_id} not found")
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = cursor.fetchone()
+
+    if row is not None:
+        return _row_to_task(row)
+
+    return JSONResponse(status_code=404, content={"error": "Task not found"})
 
 
 @app.post(
