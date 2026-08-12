@@ -156,22 +156,21 @@ def get_task(task_id: int):
     responses={400: {"description": "Invalid task data"}},
 )
 def create_task(task_data: TaskCreate):
-    # Generate next task ID by finding the max ID and adding 1
-    next_id = max([task["id"] for task in tasks]) + 1 if tasks else 1
-    
-    # Create new task with generated ID and done=False
-    new_task = {
-        "id": next_id,
-        "title": task_data.title,
-        "done": False
-    }
-    
-    # Store in memory
-    tasks.append(new_task)
-    
-    # Return the created task
-    return new_task
+    # Store the new task in the SQLite database and return the created row.
+    with get_connection() as conn:
+        cursor = conn.cursor()
 
+        cursor.execute(
+            "INSERT INTO tasks (title, done) VALUES (?, ?)",
+            (task_data.title, False),
+        )
+
+        # Commit the change so the row is persisted and lastrowid is available
+        conn.commit()
+
+        new_id = cursor.lastrowid
+
+    return {"id": new_id, "title": task_data.title, "done": False}
 
 @app.put(
     "/tasks/{task_id}",
