@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -79,12 +79,6 @@ class TaskUpdate(BaseModel):
             }
         }
 
-tasks = [
-    {"id": 1, "title": "Learn FastAPI", "done": False},
-    {"id": 2, "title": "Build CRUD API", "done": False},
-    {"id": 3, "title": "Write tests", "done": False},
-]
-
 
 def _row_to_task(row):
     return {
@@ -119,7 +113,7 @@ def health_check():
 @app.get(
     "/tasks",
     summary="List tasks",
-    description="Returns every task currently stored in the in-memory list.",
+    description="Returns every task currently stored in SQLite.",
 )
 def get_tasks():
     with get_connection() as conn:
@@ -152,7 +146,7 @@ def get_task(task_id: int):
     "/tasks",
     status_code=status.HTTP_201_CREATED,
     summary="Create a task",
-    description="Creates a new task from JSON input, validates the title, assigns the next ID, and stores it in memory.",
+    description="Creates a new task from JSON input, validates the title, assigns the next ID, and stores it in SQLite.",
     responses={400: {"description": "Invalid task data"}},
 )
 def create_task(task_data: TaskCreate):
@@ -175,40 +169,48 @@ def create_task(task_data: TaskCreate):
 @app.put(
     "/tasks/{task_id}",
     summary="Update a task",
-    description="Updates the title and/or done state of an existing task.",
+    description="Updates the title and/or done state of an existing task in SQLite.",
     responses={400: {"description": "Invalid task data"}, 404: {"description": "Task not found"}},
 )
 def update_task(task_id: int, task_data: TaskUpdate):
-    # Find the task
-    for task in tasks:
-        if task["id"] == task_id:
-            # Update only fields that were provided (not None)
-            if task_data.title is not None:
-                task["title"] = task_data.title
-            if task_data.done is not None:
-                task["done"] = task_data.done
-            
-            # Return the updated task
-            return task
-    
-    # Task not found
-    raise HTTPException(status_code=404, detail=f"Task with id {task_id} not found")
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT title, done FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        row = cursor.fetchone()
+
+        if row is None:
+            return JSONResponse(status_code=404, content={"error": "Task not found"})
+
+        title = task_data.title if task_data.title is not None else row[0]
+        done = task_data.done if task_data.done is not None else bool(row[1])
+
+        cursor.execute(
+            "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+            (title, done, task_id),
+        )
+        conn.commit()
+
+    return {"id": task_id, "title": title, "done": done}
 
 
 @app.delete(
     "/tasks/{task_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a task",
-    description="Removes a task from the in-memory list and returns 204 No Content when successful.",
+    description="Removes a task from SQLite and returns 204 No Content when successful.",
     responses={404: {"description": "Task not found"}},
 )
 def delete_task(task_id: int):
-    # Find and remove the task
-    for index, task in enumerate(tasks):
-        if task["id"] == task_id:
-            tasks.pop(index)
-            # Return nothing (204 No Content)
-            return
-    
-    # Task not found
-    raise HTTPException(status_code=404, detail=f"Task with id {task_id} not found")
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+
+        if cursor.rowcount == 0:
+            return JSONResponse(status_code=404, content={"error": "Task not found"})
+
+        conn.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
