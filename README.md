@@ -3,11 +3,12 @@
 <img width="1920" height="1080" alt="fullreadme" src="https://github.com/user-attachments/assets/4c545805-8977-4777-9a5a-6ddff688e2bd" />
 # FlyRank CRUD API
 
-A small in-memory CRUD API built with FastAPI and Python for the FlyRank Backend AI Engineering Week 2 challenge. It demonstrates REST endpoints, request validation, error handling, and automatic Swagger documentation.
+A small SQLite-backed CRUD API built with FastAPI and Python for the FlyRank Backend AI Engineering Week 2 challenge. It demonstrates REST endpoints, request validation, error handling, and automatic Swagger documentation.
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Database Project](#database-project)
 - [Technologies](#technologies)
 - [Project Structure](#project-structure)
 - [Setup & Installation](#setup--installation)
@@ -31,6 +32,57 @@ This project demonstrates how to build a RESTful API using Python and FastAPI. I
 - Health check endpoints
 - CRUD operations (Create, Read, Update, Delete)
 - Automatic OpenAPI documentation through Swagger UI
+
+# Database Project
+
+### Why SQLite?
+
+This project is a small CRUD API, so SQLite is a strong fit. It is lightweight, serverless, and file-based, which means there is no separate database server to install or manage. That keeps the setup simple while still providing a reliable relational database for storing the task records used by the API.
+
+### Database Location
+
+The SQLite database is defined in `app/database.py` with `Path(__file__).resolve().parent.parent / "tasks.db"`. Because the file is resolved from the application folder to the project root, the database is stored in the repository root as `tasks.db`.
+
+This means the database file is located at:
+
+```text
+C:\Users\Admin\flyrank_crud-api\tasks.db
+```
+
+### How to Run the Project
+
+```bash
+# Activate the virtual environment (Windows)
+venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the FastAPI application with Uvicorn
+uvicorn app.main:app --reload --port 8080
+```
+
+Then open the API documentation in a browser:
+
+```text
+http://127.0.0.1:8080/docs
+```
+
+### Database Viewer Screenshot
+
+![Database Viewer](db.PNG)
+
+*This screenshot shows the SQLite database being inspected in a database viewer while reviewing the `tasks` table.*
+
+### Example SQL Query
+
+```sql
+SELECT * FROM tasks;
+```
+
+![SQL query execution](excuting.png)
+
+This query retrieves all rows from the `tasks` table so the stored task records can be reviewed and verified.
 
 ---
 
