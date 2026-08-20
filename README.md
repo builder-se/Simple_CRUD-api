@@ -9,6 +9,7 @@ A small SQLite-backed CRUD API built with FastAPI and Python for the FlyRank Bac
 
 - [Overview](#overview)
 - [Database Project](#database-project)
+- [Stage 0 PostgreSQL Docker Setup](#stage-0-postgresql-docker-setup)
 - [Technologies](#technologies)
 - [Project Structure](#project-structure)
 - [Setup & Installation](#setup--installation)
@@ -83,6 +84,39 @@ SELECT * FROM tasks;
 ![SQL query execution](excuting.png)
 
 This query retrieves all rows from the `tasks` table so the stored task records can be reviewed and verified.
+
+---
+
+## Stage 0 PostgreSQL Docker Setup
+
+For FlyRank AI A3 Containerize Your Stack, Stage 0, PostgreSQL is running in Docker with the following command:
+
+```bash
+docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:17
+```
+
+- `taskdb` is the PostgreSQL container name.
+- `tasks` is the PostgreSQL database name.
+- PostgreSQL is exposed on `localhost:5432`.
+- `taskdata` is a Docker named volume used for persistent PostgreSQL data.
+
+Verify that the container is running:
+
+```bash
+docker ps
+```
+
+Connect to the PostgreSQL database:
+
+```bash
+docker exec -it taskdb psql -U postgres -d tasks
+```
+
+Inside `psql`, use `\dt` to inspect database tables. The database is currently empty, so `\dt` reports that no relations exist.
+
+### Why `postgres:17`?
+
+This setup uses `postgres:17` instead of `postgres:latest` because PostgreSQL 18+ Docker images changed the recommended PostgreSQL data-directory layout. The original FlyRank Stage 0 command mounts `/var/lib/postgresql/data`, so PostgreSQL 17 keeps the setup compatible with the challenge's specified volume layout.
 
 ---
 
