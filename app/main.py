@@ -5,7 +5,14 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from app.database import get_connection, init_db
+from app.database import (
+    create_task as create_task_record,
+    delete_task_by_id,
+    get_task_by_id,
+    init_db,
+    list_tasks,
+    update_task_by_id,
+)
 
 app = FastAPI()
 
@@ -36,7 +43,7 @@ def custom_openapi():
         title="Task API",
         version="1.0",
         summary="FlyRank CRUD task API",
-        description="A small in-memory CRUD API for learning FastAPI request handling, validation, and REST patterns.",
+        description="A small CRUD API backed by PostgreSQL for learning FastAPI request handling, validation, and REST patterns.",
         routes=app.routes,
     )
 
@@ -54,7 +61,7 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-# Pydantic model for creating a task
+# Request model for creating a task.
 class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
     
@@ -66,7 +73,7 @@ class TaskCreate(BaseModel):
         }
 
 
-# Pydantic model for updating a task
+# Request model for updating a task.
 class TaskUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=100)
     done: Optional[bool] = None
@@ -78,14 +85,6 @@ class TaskUpdate(BaseModel):
                 "done": True
             }
         }
-
-
-def _row_to_task(row):
-    return {
-        "id": row[0],
-        "title": row[1],
-        "done": bool(row[2]),
-    }
 
 
 @app.get(
@@ -113,15 +112,10 @@ def health_check():
 @app.get(
     "/tasks",
     summary="List tasks",
-    description="Returns every task currently stored in SQLite.",
+    description="Returns every task currently stored in PostgreSQL.",
 )
 def get_tasks():
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tasks")
-        rows = cursor.fetchall()
-
-    return {"tasks": [_row_to_task(row) for row in rows]}
+    return {"tasks": list_tasks()}
 
 
 @app.get(
@@ -131,13 +125,10 @@ def get_tasks():
     responses={404: {"description": "Task not found"}},
 )
 def get_task(task_id: int):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
-        row = cursor.fetchone()
+    task = get_task_by_id(task_id)
 
-    if row is not None:
-        return _row_to_task(row)
+    if task is not None:
+        return task
 
     return JSONResponse(status_code=404, content={"error": "Task not found"})
 
@@ -146,71 +137,38 @@ def get_task(task_id: int):
     "/tasks",
     status_code=status.HTTP_201_CREATED,
     summary="Create a task",
-    description="Creates a new task from JSON input, validates the title, assigns the next ID, and stores it in SQLite.",
+    description="Creates a new task from JSON input, validates the title, and stores it in PostgreSQL.",
     responses={400: {"description": "Invalid task data"}},
 )
 def create_task(task_data: TaskCreate):
-    # Store the new task in the SQLite database and return the created row.
-    with get_connection() as conn:
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "INSERT INTO tasks (title, done) VALUES (?, ?)",
-            (task_data.title, False),
-        )
-
-        # Commit the change so the row is persisted and lastrowid is available
-        conn.commit()
-
-        new_id = cursor.lastrowid
-
-    return {"id": new_id, "title": task_data.title, "done": False}
+    return create_task_record(task_data.title)
 
 @app.put(
     "/tasks/{task_id}",
     summary="Update a task",
-    description="Updates the title and/or done state of an existing task in SQLite.",
+    description="Updates the title and/or done state of an existing task in PostgreSQL.",
     responses={400: {"description": "Invalid task data"}, 404: {"description": "Task not found"}},
 )
 def update_task(task_id: int, task_data: TaskUpdate):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT title, done FROM tasks WHERE id = ?",
-            (task_id,),
-        )
-        row = cursor.fetchone()
+    task = update_task_by_id(task_id, task_data.title, task_data.done)
 
-        if row is None:
-            return JSONResponse(status_code=404, content={"error": "Task not found"})
+    if task is None:
+        return JSONResponse(status_code=404, content={"error": "Task not found"})
 
-        title = task_data.title if task_data.title is not None else row[0]
-        done = task_data.done if task_data.done is not None else bool(row[1])
-
-        cursor.execute(
-            "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
-            (title, done, task_id),
-        )
-        conn.commit()
-
-    return {"id": task_id, "title": title, "done": done}
+    return task
 
 
 @app.delete(
     "/tasks/{task_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a task",
-    description="Removes a task from SQLite and returns 204 No Content when successful.",
+    description="Removes a task from PostgreSQL and returns 204 No Content when successful.",
     responses={404: {"description": "Task not found"}},
 )
 def delete_task(task_id: int):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    deleted = delete_task_by_id(task_id)
 
-        if cursor.rowcount == 0:
-            return JSONResponse(status_code=404, content={"error": "Task not found"})
-
-        conn.commit()
+    if not deleted:
+        return JSONResponse(status_code=404, content={"error": "Task not found"})
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
